@@ -4,15 +4,13 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 np.random.seed(0)
 
-# does this work?
-
 #TODO Randomize other relay/user parameters
 
 colors = ['blue', 'green', 'orange', 'yellow']
 class Resource:
      def __init__(self, x, y, z):
         self.pos = [x, y, z]
-        self.colors = ['blue', 'green'] # or orange, or yellow
+        self.colors = np.random.choice(colors, 2)
         self.TxRate = 40
         self.RxRate = 35
         self.velocity = [0, 0, 0]
@@ -21,25 +19,72 @@ class Resource:
 class Relay(Resource):
     def __init__(self, x, y, z):
         super().__init__(x, y, z)
+        self.colors = np.random.choice(colors, 3)
 
 class House(Resource):
     def __init__(self, x, y, z):
         super().__init__(x, y, z)
+        self.RxRate = np.random.choice([1, 2, 5], 1)
 
 class Car(Resource):
     def __init__(self, x, y, z):
         super().__init__(x, y, z)
+        self.RxRate = np.random.choice([.25, .5, 1], 1)
+        self.TxRate = 0 
 
 class Phone(Resource):
     def __init__(self, x, y, z):
         super().__init__(x, y, z)
+        self.RxRate = np.random.choice([.5, 1, 2], 1)
+        self.TxRate = np.random.choice([.5, 1], 1)
 
 class Server(Resource):
     def __init__(self, x, y, z):
         super().__init__(x, y, z)
+        self.RxRate = 30
+        self.TxRate = 100
 
 def getImage(path, zoom):
    return OffsetImage(plt.imread(path, format="png"), zoom=zoom)
+
+def calcDist(resource1, resource2):
+    dx = abs(resource1.pos[0] - resource2.pos[0])
+    dy = abs(resource1.pos[1] - resource2.pos[1])
+    dx_wrap = min(dx, 600 - dx)  # minimum distance considering wrapping around
+    dy_wrap = min(dy, 600 - dy)
+    return np.sqrt(dx_wrap**2 + dy_wrap**2)
+
+def establish_receiving_connections(resources, relays):
+    for resource in resources:
+        if isinstance(resource, Relay):
+            continue  # Relays are already connected to adjacent relays
+        for relay in relays:
+            distance = calcDist(resource, relay)
+            if (isinstance(resource, Server) and distance <= 400) or \
+               (distance < 225 and not isinstance(resource, Server)):
+                # Check if the relay has a matching color with the resource
+                matching_color = set(resource.colors) & set(relay.colors)
+                if matching_color:
+                    resource.connection = relay
+                    break
+
+def establish_transmitting_connections(resources, relays):
+    for resource in resources:
+        if isinstance(resource, Relay):
+            continue  # Relays are already connected to adjacent relays
+        relay = resource.connection
+        if relay:
+            available_colors = set(resource.colors) & set(relay.colors)
+            transmit_color = next(iter(available_colors), None)
+            if transmit_color:
+                resource.transmit_color = transmit_color
+
+def plot_connections(resources):
+    for resource in resources:
+        if resource.connection:
+            color = resource.transmit_color
+            plt.plot([resource.pos[0], resource.connection.pos[0]],
+                     [resource.pos[1], resource.connection.pos[1]], color=color)
 
 fig, ax = plt.subplots()
 
@@ -146,7 +191,7 @@ for x, y in zip(px, py):
      phone.RxRate = np.random.choice([.5, 1, 2], 1) # Scroller, Navigator, Streamer
      phone.TxRate = np.random.choice([.5, 1], 1) # Navigator, Scroller
      phone.velocity =  np.random.rand(1, 2)*2 # 5 is max speed
-     phones.append(Phone(x, y, 0))
+     phones.append(phone)
      ab = AnnotationBbox(getImage(path, .2), (x, y), frameon=False)
      ax.add_artist(ab)
 
@@ -177,7 +222,7 @@ for x, y in zip(sx, sy):
      server.TxRate = 100
      server.RxRate = 30
      server.velocity = [0, 0, 0]
-     servers.append(Server(x, y, 0))
+     servers.append(server)
      ab = AnnotationBbox(getImage(path, .3), (x, y), frameon=False)
      ax.add_artist(ab)
 
@@ -227,8 +272,15 @@ for p in range(50, 60):
     phones[p].connection = server
     server.connection = phones[p]
 
-#for _ in phones:
-#    ax.plot([_.pos[0], _.connection.pos[0]], [_.pos[1], _.connection.pos[1]])
+# Establish receiving connections
+all_resources = houses + cars + phones + servers
+establish_receiving_connections(all_resources, relays)
+
+# Establish transmitting connections
+establish_transmitting_connections(all_resources, relays)
+
+# Plot connections
+plot_connections(all_resources)
 
 ax.autoscale()
 
