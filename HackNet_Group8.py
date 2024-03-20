@@ -148,7 +148,7 @@ for x, y in zip(px, py):
      ab = AnnotationBbox(getImage(path, .2), (x, y), frameon=False)
      ax.add_artist(ab)
 
-# Generate Serves
+# Generate Servers
 servers = []
 # Rural Servers
 nServers = 5
