@@ -4,6 +4,8 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 np.random.seed(0)
 
+# does this work?
+
 #TODO Randomize other relay/user parameters
 
 colors = ['blue', 'green', 'orange', 'yellow']
